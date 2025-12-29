@@ -146,17 +146,32 @@ h1 {
         <iframe id="player" allow="autoplay; encrypted-media" allowfullscreen></iframe>
     </div>
 </div>
-
 <script>
 const API_KEY = "AIzaSyA2_xUL6aomd0Pr8MHinkBHL7YoJxwB-HM";
 const CHANNEL_ID = "UC2S-PCEHkB034IyJh8Ha7pg";
 const MAX_RESULTS = 6;
+const CACHE_HOURS = 24;
+const CACHE_KEY = "yt_popular_cache_v1";
 
 let nextPageToken = "";
+let cachedData = JSON.parse(localStorage.getItem(CACHE_KEY)) || {
+    time: 0,
+    pages: []
+};
+
+// Check cache validity
+const cacheValid = Date.now() - cachedData.time < CACHE_HOURS * 60 * 60 * 1000;
+
+if (cacheValid && cachedData.pages.length) {
+    cachedData.pages.forEach(renderPage);
+    nextPageToken = cachedData.nextPageToken || "";
+} else {
+    cachedData = { time: Date.now(), pages: [] };
+    loadVideos();
+}
 
 function loadVideos() {
     let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&order=viewCount&maxResults=${MAX_RESULTS}&channelId=${CHANNEL_ID}&key=${API_KEY}`;
-
     if (nextPageToken) url += `&pageToken=${nextPageToken}`;
 
     fetch(url)
@@ -164,30 +179,13 @@ function loadVideos() {
     .then(data => {
         nextPageToken = data.nextPageToken || "";
 
-        const container = document.getElementById("videos");
+        cachedData.time = Date.now();
+        cachedData.nextPageToken = nextPageToken;
+        cachedData.pages.push(data.items);
 
-        data.items.forEach(item => {
-            const v = item.id.videoId;
-            const t = item.snippet.title;
-            const d = item.snippet.description.substring(0, 90) + "...";
-            const thumb = item.snippet.thumbnails.high.url;
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cachedData));
 
-            container.innerHTML += `
-                <div class="video-card">
-                    <div class="thumbnail" onclick="openModal('${v}')">
-                        <img src="${thumb}">
-                        <div class="play-btn">▶</div>
-                    </div>
-                    <div class="video-content">
-                        <div class="video-title">${t}</div>
-                        <div class="video-desc">${d}</div>
-                        <button class="watch-btn" onclick="openModal('${v}')">
-                            Watch Now
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
+        renderPage(data.items);
 
         if (!nextPageToken) {
             document.querySelector(".load-more").style.display = "none";
@@ -195,10 +193,37 @@ function loadVideos() {
     });
 }
 
+function renderPage(items) {
+    const container = document.getElementById("videos");
+
+    items.forEach(item => {
+        const v = item.id.videoId;
+        const t = item.snippet.title;
+        const d = item.snippet.description.substring(0, 90) + "...";
+        const thumb = item.snippet.thumbnails.high.url;
+
+        container.innerHTML += `
+            <div class="video-card">
+                <div class="thumbnail" onclick="openModal('${v}')">
+                    <img src="${thumb}">
+                    <div class="play-btn">▶</div>
+                </div>
+                <div class="video-content">
+                    <div class="video-title">${t}</div>
+                    <div class="video-desc">${d}</div>
+                    <button class="watch-btn" onclick="openModal('${v}')">
+                        Watch Now
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+// Modal logic remains same
 function openModal(videoId) {
     const modal = document.getElementById("videoModal");
     const player = document.getElementById("player");
-
     player.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
     modal.style.display = "flex";
 }
@@ -207,14 +232,8 @@ function closeModal() {
     document.getElementById("player").src = "";
     document.getElementById("videoModal").style.display = "none";
 }
-
-document.getElementById("videoModal").addEventListener("click", e => {
-    if (e.target.id === "videoModal") closeModal();
-});
-
-// Initial load
-loadVideos();
 </script>
+
 
 </body>
 </html>

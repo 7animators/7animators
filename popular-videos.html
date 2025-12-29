@@ -18,34 +18,83 @@ h1 {
     padding: 20px;
 }
 
+/* GRID */
 .video-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
     padding: 20px;
 }
 
+/* CARD */
 .video-card {
-    position: relative;
-    cursor: pointer;
+    background: #1c1c1c;
     border-radius: 14px;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
-.video-card img {
+.thumbnail {
+    position: relative;
+    cursor: pointer;
+}
+
+.thumbnail img {
     width: 100%;
     display: block;
 }
 
 .play-btn {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 60px;
-    color: #fff;
-    opacity: 0.85;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 64px;
+    opacity: 0.9;
     pointer-events: none;
+}
+
+/* CONTENT */
+.video-content {
+    padding: 14px;
+}
+
+.video-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.video-desc {
+    font-size: 13px;
+    opacity: 0.8;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+/* BUTTON */
+.watch-btn {
+    padding: 10px;
+    background: #ff0000;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+}
+
+/* LOAD MORE */
+.load-more {
+    display: block;
+    margin: 20px auto 40px;
+    padding: 12px 30px;
+    border-radius: 30px;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 /* MODAL */
@@ -53,7 +102,7 @@ h1 {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.8);
+    background: rgba(0,0,0,0.85);
     z-index: 999;
     justify-content: center;
     align-items: center;
@@ -88,11 +137,13 @@ h1 {
 
 <div class="video-grid" id="videos"></div>
 
+<button class="load-more" onclick="loadVideos()">Load More</button>
+
 <!-- POPUP MODAL -->
 <div class="modal" id="videoModal">
     <div class="modal-content">
         <div class="close-btn" onclick="closeModal()">✖</div>
-        <iframe id="player" allowfullscreen></iframe>
+        <iframe id="player" allow="autoplay; encrypted-media" allowfullscreen></iframe>
     </div>
 </div>
 
@@ -101,44 +152,68 @@ const API_KEY = "AIzaSyA2_xUL6aomd0Pr8MHinkBHL7YoJxwB-HM";
 const CHANNEL_ID = "UC2S-PCEHkB034IyJh8Ha7pg";
 const MAX_RESULTS = 6;
 
-fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&id&type=video&order=viewCount&maxResults=${MAX_RESULTS}&channelId=${CHANNEL_ID}&key=${API_KEY}`)
-.then(res => res.json())
-.then(data => {
-    const container = document.getElementById("videos");
+let nextPageToken = "";
 
-    data.items.forEach(item => {
-        const videoId = item.id.videoId;
-        const thumb = item.snippet.thumbnails.high.url;
+function loadVideos() {
+    let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&order=viewCount&maxResults=${MAX_RESULTS}&channelId=${CHANNEL_ID}&key=${API_KEY}`;
 
-        container.innerHTML += `
-            <div class="video-card" onclick="openModal('${videoId}')">
-                <img src="${thumb}">
-                <div class="play-btn">▶</div>
-            </div>
-        `;
+    if (nextPageToken) url += `&pageToken=${nextPageToken}`;
+
+    fetch(url)
+    .then(res => res.json())
+    .then(data => {
+        nextPageToken = data.nextPageToken || "";
+
+        const container = document.getElementById("videos");
+
+        data.items.forEach(item => {
+            const v = item.id.videoId;
+            const t = item.snippet.title;
+            const d = item.snippet.description.substring(0, 90) + "...";
+            const thumb = item.snippet.thumbnails.high.url;
+
+            container.innerHTML += `
+                <div class="video-card">
+                    <div class="thumbnail" onclick="openModal('${v}')">
+                        <img src="${thumb}">
+                        <div class="play-btn">▶</div>
+                    </div>
+                    <div class="video-content">
+                        <div class="video-title">${t}</div>
+                        <div class="video-desc">${d}</div>
+                        <button class="watch-btn" onclick="openModal('${v}')">
+                            Watch Now
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        if (!nextPageToken) {
+            document.querySelector(".load-more").style.display = "none";
+        }
     });
-});
+}
 
 function openModal(videoId) {
     const modal = document.getElementById("videoModal");
     const player = document.getElementById("player");
 
-    player.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+    player.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
     modal.style.display = "flex";
 }
 
 function closeModal() {
-    const modal = document.getElementById("videoModal");
-    const player = document.getElementById("player");
-
-    player.src = "";
-    modal.style.display = "none";
+    document.getElementById("player").src = "";
+    document.getElementById("videoModal").style.display = "none";
 }
 
-// Close when clicking outside
 document.getElementById("videoModal").addEventListener("click", e => {
     if (e.target.id === "videoModal") closeModal();
 });
+
+// Initial load
+loadVideos();
 </script>
 
 </body>

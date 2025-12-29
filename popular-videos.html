@@ -21,14 +21,63 @@ h1 {
 .video-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 15px;
+    gap: 16px;
     padding: 20px;
 }
 
-iframe {
+.video-card {
+    position: relative;
+    cursor: pointer;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.video-card img {
     width: 100%;
-    height: 200px;
+    display: block;
+}
+
+.play-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 60px;
+    color: #fff;
+    opacity: 0.85;
+    pointer-events: none;
+}
+
+/* MODAL */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 999;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    width: 90%;
+    max-width: 900px;
+    position: relative;
+}
+
+.modal iframe {
+    width: 100%;
+    height: 500px;
     border-radius: 12px;
+    border: none;
+}
+
+.close-btn {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    font-size: 28px;
+    cursor: pointer;
 }
 </style>
 </head>
@@ -39,29 +88,57 @@ iframe {
 
 <div class="video-grid" id="videos"></div>
 
+<!-- POPUP MODAL -->
+<div class="modal" id="videoModal">
+    <div class="modal-content">
+        <div class="close-btn" onclick="closeModal()">✖</div>
+        <iframe id="player" allowfullscreen></iframe>
+    </div>
+</div>
+
 <script>
 const API_KEY = "AIzaSyA2_xUL6aomd0Pr8MHinkBHL7YoJxwB-HM";
 const CHANNEL_ID = "UC2S-PCEHkB034IyJh8Ha7pg";
 const MAX_RESULTS = 6;
 
-fetch(
-  `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${CHANNEL_ID}&part=snippet,id&order=viewCount&maxResults=${MAX_RESULTS}`
-)
+fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&id&type=video&order=viewCount&maxResults=${MAX_RESULTS}&channelId=${CHANNEL_ID}&key=${API_KEY}`)
 .then(res => res.json())
 .then(data => {
     const container = document.getElementById("videos");
+
     data.items.forEach(item => {
-        if (item.id.videoId) {
-            container.innerHTML += `
-                <iframe 
-                    src="https://www.youtube.com/embed/${item.id.videoId}" 
-                    frameborder="0" 
-                    allowfullscreen>
-                </iframe>`;
-        }
+        const videoId = item.id.videoId;
+        const thumb = item.snippet.thumbnails.high.url;
+
+        container.innerHTML += `
+            <div class="video-card" onclick="openModal('${videoId}')">
+                <img src="${thumb}">
+                <div class="play-btn">▶</div>
+            </div>
+        `;
     });
-})
-.catch(err => console.error(err));
+});
+
+function openModal(videoId) {
+    const modal = document.getElementById("videoModal");
+    const player = document.getElementById("player");
+
+    player.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+    modal.style.display = "flex";
+}
+
+function closeModal() {
+    const modal = document.getElementById("videoModal");
+    const player = document.getElementById("player");
+
+    player.src = "";
+    modal.style.display = "none";
+}
+
+// Close when clicking outside
+document.getElementById("videoModal").addEventListener("click", e => {
+    if (e.target.id === "videoModal") closeModal();
+});
 </script>
 
 </body>
